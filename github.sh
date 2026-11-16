@@ -194,6 +194,15 @@ spin_i=0
 
 while true; do
   REPOS=$(fetch_repositories)
+
+  # The API returns an object (not an array) on errors: bad token, SSO, 404...
+  if ! echo "$REPOS" | jq -e 'type == "array"' > /dev/null 2>&1; then
+    MESSAGE=$(echo "$REPOS" | jq -r '.message // empty' 2>/dev/null)
+    printf "\r\033[K  ${RED}✗ Could not list repositories for %s${RESET}\n" "$ORG" >&2
+    printf "    ${DIM}%s${RESET}\n\n" "${MESSAGE:-No valid response from $GITHUB_API_URL}" >&2
+    exit 1
+  fi
+
   REPO_NAMES=$(echo "$REPOS" | jq -r '.[].ssh_url')
 
   if [ -z "$REPO_NAMES" ] || [ "$REPO_NAMES" == "null" ]; then
