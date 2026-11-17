@@ -38,7 +38,11 @@ func execute(ctx context.Context, cmd *ucli.Command, targets []target) error {
 	if err != nil {
 		return ucli.Exit(err.Error(), 2)
 	}
-	matcher, err := ignore.Load(filepath.Join(root, ".yoinkignore"), cmd.StringSlice("ignore"))
+	ignoreFiles := []string{filepath.Join(root, ".yoinkignore")}
+	if global := globalIgnoreFile(); global != "" {
+		ignoreFiles = append([]string{global}, ignoreFiles...)
+	}
+	matcher, err := ignore.Load(ignoreFiles, cmd.StringSlice("ignore"))
 	if err != nil {
 		return ucli.Exit(err.Error(), 2)
 	}

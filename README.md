@@ -71,13 +71,23 @@ Flags can go before or after the targets. When the protocol is switched, existin
 
 ### Ignoring repositories
 
-Put globs in `<root>/.yoinkignore`, one per line, matched case-insensitively against the path
-under the root. A pattern that matches a directory skips everything in it.
+Ignore patterns are globs, one per line, matched case-insensitively against the path under the
+root. A pattern that matches a directory skips everything in it. Patterns come from three
+places, and they add up:
+
+| Source | Applies to |
+| --- | --- |
+| `~/.config/yoink/ignore` (or `$XDG_CONFIG_HOME/yoink/ignore`) | every root; the same path on Windows |
+| `<root>/.yoinkignore` | that root |
+| `--ignore GLOB` | that run |
 
 ```text
-# ~/Code/.yoinkignore
-acme/legacy-*
+# ~/.config/yoink/ignore: habits that hold everywhere
+*/*-deprecated
 */sandbox
+
+# ~/Code/.yoinkignore: specific to these clones
+acme/legacy-*
 contoso/OldProject
 ```
 

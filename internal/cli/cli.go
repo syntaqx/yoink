@@ -78,8 +78,9 @@ func newCommand(reg provider.Registry) *ucli.Command {
 are fetched, switched to their default branch and fast-forwarded; nothing is ever merged,
 rebased or discarded without asking.
 
-Ignore patterns are read from <root>/.yoinkignore, one glob per line, matched against the
-path under the root ("acme/legacy-*", "*/sandbox", "acme/OldProject").
+Ignore patterns are globs matched against the path under the root ("acme/legacy-*",
+"*/sandbox", "acme/OldProject"), one per line, from ~/.config/yoink/ignore (every root;
+$XDG_CONFIG_HOME is honored), <root>/.yoinkignore (that root), and --ignore. They add up.
 
 Examples:
   yoink github golang
@@ -228,6 +229,20 @@ func splitURL(s string) (host, path string, ok bool) {
 // cleanTarget trims whitespace and surrounding slashes, so "acme/" and "/acme" mean "acme".
 func cleanTarget(s string) string {
 	return strings.Trim(strings.TrimSpace(s), "/ \t")
+}
+
+// globalIgnoreFile is the per-user ignore file, applied whatever the root:
+// $XDG_CONFIG_HOME/yoink/ignore, else ~/.config/yoink/ignore (the same on every OS, as git does).
+// It returns "" if no home directory can be found.
+func globalIgnoreFile() string {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" && filepath.IsAbs(xdg) {
+		return filepath.Join(xdg, "yoink", "ignore")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".config", "yoink", "ignore")
 }
 
 // resolveRoot picks the directory clones live under: the flag or YOINK_ROOT if set, else ~/Code.

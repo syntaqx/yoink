@@ -17,26 +17,16 @@ type Matcher struct {
 	patterns []string
 }
 
-// Load reads patterns from file (a missing file is fine) and appends extra. Blank lines and lines
-// starting with # are skipped.
-func Load(file string, extra []string) (*Matcher, error) {
+// Load reads patterns from each file (missing files are fine) and appends extra. Blank lines and
+// lines starting with # are skipped. Patterns from every source add up; none overrides another.
+func Load(files []string, extra []string) (*Matcher, error) {
 	m := &Matcher{}
-	f, err := os.Open(file)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-	case err != nil:
-		return nil, err
-	default:
-		defer f.Close()
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			if line := strings.TrimSpace(sc.Text()); line != "" && !strings.HasPrefix(line, "#") {
-				m.patterns = append(m.patterns, line)
-			}
-		}
-		if err := sc.Err(); err != nil {
+	for _, file := range files {
+		patterns, err := readFile(file)
+		if err != nil {
 			return nil, err
 		}
+		m.patterns = append(m.patterns, patterns...)
 	}
 	m.patterns = append(m.patterns, extra...)
 	for i, p := range m.patterns {
@@ -47,6 +37,29 @@ func Load(file string, extra []string) (*Matcher, error) {
 		m.patterns[i] = p
 	}
 	return m, nil
+}
+
+func readFile(file string) ([]string, error) {
+	f, err := os.Open(file)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var patterns []string
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		if line := strings.TrimSpace(sc.Text()); line != "" && !strings.HasPrefix(line, "#") {
+			patterns = append(patterns, line)
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return nil, fmt.Errorf("reading %s: %w", file, err)
+	}
+	return patterns, nil
 }
 
 // Match reports whether the slash-separated repository path, or any directory above it, matches a

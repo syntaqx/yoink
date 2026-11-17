@@ -78,6 +78,23 @@ func TestResolveRoot(t *testing.T) {
 	}
 }
 
+func TestGlobalIgnoreFile(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	if got, want := globalIgnoreFile(), filepath.Join(xdg, "yoink", "ignore"); got != want {
+		t.Errorf("with XDG_CONFIG_HOME: %q, want %q", got, want)
+	}
+
+	t.Setenv("XDG_CONFIG_HOME", "relative/ignored") // the XDG spec says relative paths are invalid
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip(err)
+	}
+	if got, want := globalIgnoreFile(), filepath.Join(home, ".config", "yoink", "ignore"); got != want {
+		t.Errorf("default: %q, want %q", got, want)
+	}
+}
+
 func mustAbs(t *testing.T, p string) string {
 	t.Helper()
 	a, err := filepath.Abs(p)

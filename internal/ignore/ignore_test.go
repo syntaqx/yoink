@@ -12,7 +12,7 @@ func TestMatch(t *testing.T) {
 	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m, err := Load(file, []string{`acme\scratch`})
+	m, err := Load([]string{file}, []string{`acme\scratch`})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestMatch(t *testing.T) {
 }
 
 func TestMissingFileIsFine(t *testing.T) {
-	m, err := Load(filepath.Join(t.TempDir(), "nope"), nil)
+	m, err := Load([]string{filepath.Join(t.TempDir(), "nope")}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,8 +42,31 @@ func TestMissingFileIsFine(t *testing.T) {
 	}
 }
 
+func TestSourcesAddUp(t *testing.T) {
+	dir := t.TempDir()
+	global, local := filepath.Join(dir, "global"), filepath.Join(dir, "local")
+	if err := os.WriteFile(global, []byte("*/legacy-*\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(local, []byte("acme/sandbox\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, err := Load([]string{global, local, filepath.Join(dir, "missing")}, []string{"acme/tmp"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{"other/legacy-api", "acme/sandbox", "acme/tmp"} {
+		if !m.Match(p) {
+			t.Errorf("Match(%q) = false, want true", p)
+		}
+	}
+	if m.Match("acme/api") {
+		t.Error("Match(acme/api) = true, want false")
+	}
+}
+
 func TestBadPattern(t *testing.T) {
-	if _, err := Load(filepath.Join(t.TempDir(), "nope"), []string{"acme/[oops"}); err == nil {
+	if _, err := Load(nil, []string{"acme/[oops"}); err == nil {
 		t.Error("want an error for a malformed pattern")
 	}
 }
