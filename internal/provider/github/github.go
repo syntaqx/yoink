@@ -3,6 +3,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -73,7 +74,7 @@ func (p *Provider) Discover(ctx context.Context, owner string, progress func(int
 
 	var acct account
 	if _, err := c.GetJSON(ctx, p.API+"/users/"+url.PathEscape(owner), &acct); err != nil {
-		return nil, err
+		return nil, explain(err, owner, tok != "")
 	}
 
 	// Organizations list everything the token can see. For users, only the authenticated user's
@@ -93,7 +94,7 @@ func (p *Provider) Discover(ctx context.Context, owner string, progress func(int
 		var page []repository
 		h, err := c.GetJSON(ctx, next, &page)
 		if err != nil {
-			return nil, err
+			return nil, explain(err, acct.Login, tok != "")
 		}
 		for _, r := range page {
 			repos = append(repos, provider.Repo{
@@ -108,6 +109,26 @@ func (p *Provider) Discover(ctx context.Context, owner string, progress func(int
 	}
 	sort.Slice(repos, func(i, j int) bool { return strings.ToLower(repos[i].Path) < strings.ToLower(repos[j].Path) })
 	return repos, nil
+}
+
+// explain adds a hint for the API errors people hit most: a misspelled owner and a bad token.
+func explain(err error, owner string, authed bool) error {
+	var he *httpx.Error
+	if !errors.As(err, &he) {
+		return err
+	}
+	switch he.StatusCode {
+	case http.StatusNotFound:
+		return fmt.Errorf("%w (check that %q is a GitHub organization or user you can see)", err, owner)
+	case http.StatusUnauthorized:
+		return fmt.Errorf("%w (GitHub rejected the token; check GITHUB_TOKEN, GH_TOKEN or `gh auth status`)", err)
+	case http.StatusForbidden:
+		if !authed {
+			return fmt.Errorf("%w (set GITHUB_TOKEN or run `gh auth login` to authenticate)", err)
+		}
+		return fmt.Errorf("%w (check that your token has access to %q)", err, owner)
+	}
+	return err
 }
 
 var linkNext = regexp.MustCompile(`<([^>]+)>\s*;\s*rel="next"`)

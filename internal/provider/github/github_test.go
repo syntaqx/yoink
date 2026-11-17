@@ -3,10 +3,14 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/syntaqx/yoink/internal/httpx"
 )
 
 func serve(t *testing.T, handler func(w http.ResponseWriter, r *http.Request, base string)) *Provider {
@@ -119,11 +123,36 @@ func TestErrorsCarryTheAPIMessage(t *testing.T) {
 		reply(w, map[string]string{"message": "Not Found"})
 	})
 	_, err := p.Discover(context.Background(), "nobody", func(int) {})
-	if err == nil || err.Error() != "HTTP 404: Not Found" {
+	want := `HTTP 404: Not Found (check that "nobody" is a GitHub organization or user you can see)`
+	if err == nil || err.Error() != want {
 		t.Fatalf("err = %v", err)
+	}
+	var he *httpx.Error
+	if !errors.As(err, &he) || he.StatusCode != http.StatusNotFound {
+		t.Errorf("want the *httpx.Error kept in the chain, got %T", err)
 	}
 	if _, err := p.Discover(context.Background(), "acme/repo", func(int) {}); err == nil {
 		t.Error("want an error for a slash in the owner")
+	}
+}
+
+func TestErrorHints(t *testing.T) {
+	status := http.StatusUnauthorized
+	p := serve(t, func(w http.ResponseWriter, r *http.Request, _ string) {
+		w.WriteHeader(status)
+		reply(w, map[string]string{"message": "Bad credentials"})
+	})
+	if _, err := p.Discover(context.Background(), "acme", func(int) {}); err == nil || !strings.Contains(err.Error(), "GitHub rejected the token") {
+		t.Errorf("401: err = %v", err)
+	}
+
+	status = http.StatusForbidden
+	if _, err := p.Discover(context.Background(), "acme", func(int) {}); err == nil || !strings.Contains(err.Error(), `token has access to "acme"`) {
+		t.Errorf("403 with a token: err = %v", err)
+	}
+	p.Token = func(context.Context) string { return "" }
+	if _, err := p.Discover(context.Background(), "acme", func(int) {}); err == nil || !strings.Contains(err.Error(), "GITHUB_TOKEN") {
+		t.Errorf("403 without a token: err = %v", err)
 	}
 }
 
