@@ -61,13 +61,14 @@ func denyListing(t *testing.T, dir string) {
 			t.Skipf("icacls: %v\n%s", err, out)
 		}
 		t.Cleanup(func() { _ = exec.Command("icacls", dir, "/remove:d", u.Username).Run() })
-		return
+	} else {
+		if err := os.Chmod(dir, 0o300); err != nil { // writable and searchable, not listable
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
 	}
-	if os.Geteuid() == 0 {
-		t.Skip("root can list any directory")
+	// Privileged accounts (root, or an elevated administrator) can list it anyway.
+	if _, err := os.ReadDir(dir); err == nil {
+		t.Skip("this account can list the directory despite the denial")
 	}
-	if err := os.Chmod(dir, 0o300); err != nil { // writable and searchable, not listable
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
 }
