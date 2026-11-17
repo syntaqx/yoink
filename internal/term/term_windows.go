@@ -5,22 +5,14 @@ package term
 
 import (
 	"os"
-	"syscall"
-	"unsafe"
-)
 
-var (
-	kernel32       = syscall.NewLazyDLL("kernel32.dll")
-	getConsoleMode = kernel32.NewProc("GetConsoleMode")
-	setConsoleMode = kernel32.NewProc("SetConsoleMode")
+	"golang.org/x/sys/windows"
 )
-
-const enableVirtualTerminalProcessing = 0x0004
 
 func consoleMode(f *os.File) (uint32, bool) {
 	var mode uint32
-	r, _, _ := getConsoleMode.Call(f.Fd(), uintptr(unsafe.Pointer(&mode)))
-	return mode, r != 0
+	err := windows.GetConsoleMode(windows.Handle(f.Fd()), &mode)
+	return mode, err == nil
 }
 
 // IsTerminal reports whether f is an interactive console.
@@ -35,9 +27,8 @@ func EnableColor(f *os.File) bool {
 	if !ok {
 		return false
 	}
-	if mode&enableVirtualTerminalProcessing != 0 {
+	if mode&windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING != 0 {
 		return true
 	}
-	r, _, _ := setConsoleMode.Call(f.Fd(), uintptr(mode|enableVirtualTerminalProcessing))
-	return r != 0
+	return windows.SetConsoleMode(windows.Handle(f.Fd()), mode|windows.ENABLE_VIRTUAL_TERMINAL_PROCESSING) == nil
 }

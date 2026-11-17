@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	ucli "github.com/urfave/cli/v3"
@@ -182,7 +183,7 @@ func (s *session) plan(tasks []mirror.Task) {
 // sync runs work over tasks with live [n/total] progress lines.
 func (s *session) sync(ctx context.Context, tasks []mirror.Task, work mirror.Work) []mirror.Result {
 	p := s.p
-	width := len(fmt.Sprint(len(tasks)))
+	width := len(strconv.Itoa(len(tasks)))
 	results := make([]mirror.Result, 0, len(tasks))
 	mirror.Run(ctx, tasks, s.jobs, work, func(r mirror.Result) {
 		results = append(results, r)

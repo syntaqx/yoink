@@ -1,5 +1,8 @@
 # yoink
 
+[![CI](https://github.com/syntaqx/yoink/actions/workflows/ci.yml/badge.svg)](https://github.com/syntaqx/yoink/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/syntaqx/yoink.svg)](https://pkg.go.dev/github.com/syntaqx/yoink)
+
 Grab every repository in an organization and keep your local copies up to date. yoink clones
 what's missing and fast-forwards what's there, so a whole org stays current with one command.
 
@@ -19,6 +22,13 @@ go install github.com/syntaqx/yoink@latest
 ```
 
 This puts `yoink` in `$(go env GOPATH)/bin`; make sure that's on your `PATH`. You need `git` too.
+
+Prebuilt binaries for Linux, macOS and Windows (amd64 and arm64) are attached to each
+[release](https://github.com/syntaqx/yoink/releases), with checksums and signed build provenance:
+
+```bash
+gh attestation verify yoink_*.tar.gz --repo syntaqx/yoink
+```
 
 ## Usage
 
@@ -105,4 +115,10 @@ It then gets its own subcommand, URL detection for its hosts, and help text auto
 ```bash
 go test ./...
 go run . gh acme --dry-run
+golangci-lint run          # config in .golangci.yml
+goreleaser check           # config in .goreleaser.yaml
 ```
+
+CI lints, tests with the race detector on Linux, macOS and Windows, runs `govulncheck` (also
+weekly), and does a GoReleaser dry run. Pushing a `v*` tag publishes a release. Dependabot keeps
+the SHA-pinned actions and Go modules current.

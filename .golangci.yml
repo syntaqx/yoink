@@ -1,0 +1,41 @@
+version: "2"
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - gosec
+    - misspell
+    - nolintlint
+    - perfsprint
+    - revive
+    - unconvert
+    - unparam
+    - usestdlibvars
+  settings:
+    gosec:
+      excludes:
+        - G204 # running git and gh with arguments is the whole point
+        - G301 # clone parent directories are created 0755 like git does
+        - G304 # reading <root>/.yoinkignore, a path the user chose
+    revive:
+      rules:
+        - name: exported
+          disabled: true # small internal packages; doc comments where they help
+  exclusions:
+    presets:
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters: [gosec, errcheck]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/syntaqx/yoink
