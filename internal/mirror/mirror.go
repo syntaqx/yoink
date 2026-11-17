@@ -112,6 +112,11 @@ func clone(ctx context.Context, t Task) Result {
 	fail := func(reason Reason, log string) Result {
 		return Result{Task: t, Status: Failed, Reason: reason, Log: log}
 	}
+	// A file in the way is checked for first: on Windows, reading it as a directory reports that
+	// it doesn't exist.
+	if info, err := os.Stat(t.Dir); err == nil && !info.IsDir() {
+		return fail(NotARepo, "")
+	}
 	if entries, err := os.ReadDir(t.Dir); err == nil && len(entries) > 0 {
 		return fail(NotARepo, "")
 	} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -195,7 +200,10 @@ func hasRef(ctx context.Context, dir, ref string) bool {
 func git(ctx context.Context, dir string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	// GIT_TERMINAL_PROMPT=0 alone still lets git run an askpass program (GIT_ASKPASS, core.askPass,
+	// SSH_ASKPASS); an empty GIT_ASKPASS overrides all three. Credential helpers such as Git
+	// Credential Manager still run, so a stored sign-in keeps working.
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_ASKPASS=")
 	out, err := cmd.CombinedOutput()
 	if err != nil && ctx.Err() != nil {
 		return "interrupted", fmt.Errorf("git %s: %w", args[0], ctx.Err())

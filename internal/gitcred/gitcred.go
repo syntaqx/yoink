@@ -19,7 +19,9 @@ func Fill(ctx context.Context, host, path string) string {
 	}
 	cmd := exec.CommandContext(ctx, "git", "credential", "fill")
 	cmd.Stdin = strings.NewReader(input + "\n")
-	cmd.Env = append(os.Environ(), "GCM_INTERACTIVE=never", "GIT_TERMINAL_PROMPT=0")
+	// GIT_TERMINAL_PROMPT=0 alone still lets git run an askpass program (GIT_ASKPASS, core.askPass,
+	// SSH_ASKPASS; VS Code's terminal sets GIT_ASKPASS). An empty GIT_ASKPASS overrides all three.
+	cmd.Env = append(os.Environ(), "GCM_INTERACTIVE=never", "GIT_TERMINAL_PROMPT=0", "GIT_ASKPASS=")
 	out, err := cmd.Output()
 	if err != nil {
 		return ""
