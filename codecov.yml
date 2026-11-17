@@ -1,0 +1,18 @@
+# Coverage is uploaded once per OS (flags Linux, macOS, Windows) and merged: each OS runs code the
+# others can't, such as the Windows console and mintty detection, so only the merge reaches 100%.
+codecov:
+  notify:
+    after_n_builds: 3 # wait for all three uploads before reporting a status
+
+coverage:
+  status:
+    project:
+      default:
+        target: 100% # the whole project stays fully covered
+    patch:
+      default:
+        target: 100% # and so does every line a change adds
+
+comment:
+  layout: "condensed_header, diff, flags, files"
+  after_n_builds: 3
