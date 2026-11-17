@@ -63,6 +63,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.out
+          disable_search: true # upload only the profile above, not files the uploader finds
           flags: ${{ runner.os }}
           name: ${{ matrix.os }}
 
