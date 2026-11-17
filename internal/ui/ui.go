@@ -46,7 +46,9 @@ func (p Painter) Banner() string {
 			line.WriteString(g[row])
 		}
 		if l := strings.TrimRight(line.String(), " "); l != "" {
-			b.WriteString("  " + p.Cyan(l) + "\n")
+			b.WriteString("  ")
+			b.WriteString(p.Cyan(l))
+			b.WriteByte('\n')
 		}
 	}
 	return b.String()
