@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"os/signal"
@@ -45,8 +46,13 @@ func version() string {
 func Run(args []string) int {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
+	return runWith(ctx, registry(), args, os.Stdin, os.Stdout, os.Stderr)
+}
 
-	cmd := newCommand(registry())
+// runWith is Run with its dependencies passed in, so tests can drive the whole command.
+func runWith(ctx context.Context, reg provider.Registry, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	cmd := newCommand(reg)
+	cmd.Reader, cmd.Writer, cmd.ErrWriter = stdin, stdout, stderr
 	err := cmd.Run(ctx, append([]string{"yoink"}, args...))
 	if err == nil {
 		return 0
@@ -54,11 +60,11 @@ func Run(args []string) int {
 	var exit ucli.ExitCoder
 	if errors.As(err, &exit) {
 		if msg := err.Error(); msg != "" {
-			fmt.Fprintln(os.Stderr, "yoink: "+msg)
+			fmt.Fprintln(stderr, "yoink: "+msg)
 		}
 		return exit.ExitCode()
 	}
-	fmt.Fprintln(os.Stderr, "yoink: "+err.Error())
+	fmt.Fprintln(stderr, "yoink: "+err.Error())
 	return 2
 }
 
@@ -73,6 +79,7 @@ func newCommand(reg provider.Registry) *ucli.Command {
 		EnableShellCompletion: true,
 		HideHelpCommand:       true,
 		ExitErrHandler:        func(context.Context, *ucli.Command, error) {}, // Run reports errors
+		OnUsageError:          usageError,
 		Description: `Clones go under the root directory, one folder per owner, mirroring the host's layout:
 <root>/<owner>/<repo>, or <root>/<org>/<project>/<repo> for Azure DevOps. Existing clones
 are fetched, switched to their default branch and fast-forwarded; nothing is ever merged,
@@ -136,11 +143,12 @@ Examples:
 	for _, p := range reg {
 		info := p.Info()
 		root.Commands = append(root.Commands, &ucli.Command{
-			Name:        info.Name,
-			Aliases:     info.Aliases,
-			Usage:       "sync " + info.Title + " repositories",
-			ArgsUsage:   info.Usage + "...",
-			Description: "Auth: " + info.Auth + "\nDefault protocol: " + string(info.Protocol),
+			Name:         info.Name,
+			Aliases:      info.Aliases,
+			Usage:        "sync " + info.Title + " repositories",
+			ArgsUsage:    info.Usage + "...",
+			OnUsageError: usageError,
+			Description:  "Auth: " + info.Auth + "\nDefault protocol: " + string(info.Protocol),
 			Action: func(ctx context.Context, cmd *ucli.Command) error {
 				if cmd.NArg() == 0 {
 					return ucli.Exit(fmt.Sprintf("usage: yoink %s %s...", info.Name, info.Usage), 2)
@@ -154,6 +162,12 @@ Examples:
 		})
 	}
 	return root
+}
+
+// usageError reports a bad flag in one line with a pointer to help, instead of the default: the
+// error, the whole help text, then the error again.
+func usageError(_ context.Context, cmd *ucli.Command, err error, _ bool) error {
+	return ucli.Exit(fmt.Sprintf("%v (see %s --help)", err, cmd.FullName()), 2)
 }
 
 // target is one thing to discover: a provider and what to list in it.

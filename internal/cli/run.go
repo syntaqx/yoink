@@ -20,17 +20,23 @@ import (
 	"github.com/syntaqx/yoink/internal/ui"
 )
 
-// session is one invocation: resolved settings plus the output it writes to.
+// session is one invocation: resolved settings plus the input and output it uses.
 type session struct {
-	out      io.Writer
-	p        ui.Painter
-	live     bool // stdout is a terminal, so the spinner animates
-	root     string
-	jobs     int
-	protocol provider.Protocol // "" means each provider's default
-	ignore   *ignore.Matcher
-	dryRun   bool
-	verbose  bool
+	out         io.Writer
+	in          io.Reader
+	p           ui.Painter
+	live        bool // out is a terminal, so the spinner animates
+	interactive bool // in is a terminal, so yoink may ask questions
+	// syncRepo and resetRepo bring one repository up to date; mirror.Sync and mirror.Reset
+	// outside tests.
+	syncRepo  mirror.Work
+	resetRepo mirror.Work
+	root      string
+	jobs      int
+	protocol  provider.Protocol // "" means each provider's default
+	ignore    *ignore.Matcher
+	dryRun    bool
+	verbose   bool
 }
 
 func execute(ctx context.Context, cmd *ucli.Command, targets []target) error {
@@ -46,19 +52,26 @@ func execute(ctx context.Context, cmd *ucli.Command, targets []target) error {
 	if err != nil {
 		return ucli.Exit(err.Error(), 2)
 	}
+	out, in := cmd.Root().Writer, cmd.Root().Reader
+	outFile, _ := out.(*os.File)
+	inFile, _ := in.(*os.File)
 	color := !cmd.Bool("no-color") && os.Getenv("NO_COLOR") == "" &&
-		(os.Getenv("FORCE_COLOR") != "" || term.EnableColor(os.Stdout))
+		(os.Getenv("FORCE_COLOR") != "" || outFile != nil && term.EnableColor(outFile))
 
 	s := &session{
-		out:      os.Stdout,
-		p:        ui.Painter{Enabled: color},
-		live:     term.IsTerminal(os.Stdout),
-		root:     root,
-		jobs:     cmd.Int("jobs"),
-		protocol: provider.Protocol(strings.ToLower(cmd.String("protocol"))),
-		ignore:   matcher,
-		dryRun:   cmd.Bool("dry-run"),
-		verbose:  cmd.Bool("verbose"),
+		out:         out,
+		in:          in,
+		p:           ui.Painter{Enabled: color},
+		live:        outFile != nil && term.IsTerminal(outFile),
+		interactive: inFile != nil && term.IsTerminal(inFile),
+		syncRepo:    mirror.Sync,
+		resetRepo:   mirror.Reset,
+		root:        root,
+		jobs:        cmd.Int("jobs"),
+		protocol:    provider.Protocol(strings.ToLower(cmd.String("protocol"))),
+		ignore:      matcher,
+		dryRun:      cmd.Bool("dry-run"),
+		verbose:     cmd.Bool("verbose"),
 	}
 	if !s.run(ctx, targets) {
 		return ucli.Exit("", 1)
@@ -86,7 +99,7 @@ func (s *session) run(ctx context.Context, targets []target) bool {
 		return ok
 	}
 
-	results := s.sync(ctx, tasks, mirror.Sync)
+	results := s.sync(ctx, tasks, s.syncRepo)
 	failures := s.summarize(results, skipped)
 	failures = s.offerReset(ctx, failures)
 
@@ -285,18 +298,18 @@ func (s *session) offerReset(ctx context.Context, failures []mirror.Result) []mi
 			remaining = append(remaining, r)
 		}
 	}
-	if len(dirty) == 0 || ctx.Err() != nil || !term.IsTerminal(os.Stdin) {
+	if len(dirty) == 0 || ctx.Err() != nil || !s.interactive {
 		return failures
 	}
 
 	p := s.p
 	fmt.Fprintf(s.out, "\n  %s ", p.Bold(fmt.Sprintf("Discard local changes in these %d repo(s) with git reset --hard and retry? [y/N]", len(dirty))))
-	answer, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	answer, _ := bufio.NewReader(s.in).ReadString('\n')
 	if a := strings.ToLower(strings.TrimSpace(answer)); a != "y" && a != "yes" {
 		return failures
 	}
 	fmt.Fprintln(s.out)
-	for _, r := range s.sync(ctx, dirty, mirror.Reset) {
+	for _, r := range s.sync(ctx, dirty, s.resetRepo) {
 		if r.Status == mirror.Failed {
 			remaining = append(remaining, r)
 		}
