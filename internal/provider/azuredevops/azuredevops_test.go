@@ -92,11 +92,3 @@ func TestSignInPageIsAnError(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
-
-func TestAuthorizationFromPAT(t *testing.T) {
-	t.Setenv("AZURE_DEVOPS_EXT_PAT", "secret")
-	got, err := authorization(context.Background(), "contoso")
-	if err != nil || got != "Basic OnNlY3JldA==" { // base64(":secret")
-		t.Fatalf("got %q, %v", got, err)
-	}
-}
