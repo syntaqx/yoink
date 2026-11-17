@@ -121,4 +121,4 @@ goreleaser check           # config in .goreleaser.yaml
 
 CI lints, tests with the race detector on Linux, macOS and Windows, runs `govulncheck` (also
 weekly), and does a GoReleaser dry run. Pushing a `v*` tag publishes a release. Dependabot keeps
-the SHA-pinned actions and Go modules current.
+the actions (on major-version tags) and Go modules current.
