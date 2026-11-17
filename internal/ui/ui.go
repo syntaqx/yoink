@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -59,6 +60,7 @@ type Spinner struct {
 	p     Painter
 	label func(n int) string
 	n     atomic.Int64
+	once  sync.Once
 	stop  chan struct{}
 	done  chan struct{}
 }
@@ -78,15 +80,9 @@ func StartSpinner(w io.Writer, p Painter, live bool, label func(n int) string) *
 // Set updates the count shown by the label.
 func (s *Spinner) Set(n int) { s.n.Store(int64(n)) }
 
-// Stop erases the spinner line. It is safe to call more than once.
+// Stop erases the spinner line. It is safe to call more than once, from any goroutine.
 func (s *Spinner) Stop() {
-	select {
-	case <-s.done:
-		return
-	case <-s.stop:
-	default:
-		close(s.stop)
-	}
+	s.once.Do(func() { close(s.stop) })
 	<-s.done
 }
 

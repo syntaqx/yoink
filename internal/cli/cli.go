@@ -36,7 +36,12 @@ func version() string {
 	if Version != "" {
 		return Version
 	}
-	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
+	return moduleVersion(debug.ReadBuildInfo())
+}
+
+// moduleVersion is the version go install stamped into the binary, or "dev" for a local build.
+func moduleVersion(bi *debug.BuildInfo, ok bool) string {
+	if ok && bi.Main.Version != "" && bi.Main.Version != "(devel)" {
 		return bi.Main.Version
 	}
 	return "dev"
@@ -233,11 +238,7 @@ func splitURL(s string) (host, path string, ok bool) {
 	if err != nil || u.Host == "" {
 		return "", "", false
 	}
-	path, err = url.PathUnescape(u.Path)
-	if err != nil {
-		path = u.Path
-	}
-	return u.Hostname(), path, true
+	return u.Hostname(), u.Path, true // Path is already unescaped
 }
 
 // cleanTarget trims whitespace and surrounding slashes, so "acme/" and "/acme" mean "acme".

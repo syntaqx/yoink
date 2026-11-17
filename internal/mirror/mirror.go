@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 )
 
 // Task is one repository to bring up to date.
@@ -117,9 +118,11 @@ func clone(ctx context.Context, t Task) Result {
 	if info, err := os.Stat(t.Dir); err == nil && !info.IsDir() {
 		return fail(NotARepo, "")
 	}
+	// A file further up the path is left for MkdirAll to report, as it is on Windows, where
+	// reading through a file reports that the path doesn't exist.
 	if entries, err := os.ReadDir(t.Dir); err == nil && len(entries) > 0 {
 		return fail(NotARepo, "")
-	} else if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	} else if err != nil && !errors.Is(err, fs.ErrNotExist) && !errors.Is(err, syscall.ENOTDIR) {
 		return fail(NotARepo, err.Error())
 	}
 	if err := os.MkdirAll(filepath.Dir(t.Dir), 0o755); err != nil {

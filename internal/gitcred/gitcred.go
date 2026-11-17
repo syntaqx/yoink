@@ -26,7 +26,12 @@ func Fill(ctx context.Context, host, path string) string {
 	if err != nil {
 		return ""
 	}
-	sc := bufio.NewScanner(strings.NewReader(string(out)))
+	return password(string(out))
+}
+
+// password returns the password attribute from git credential output, or "" if there is none.
+func password(out string) string {
+	sc := bufio.NewScanner(strings.NewReader(out))
 	for sc.Scan() {
 		if v, ok := strings.CutPrefix(strings.TrimRight(sc.Text(), "\r"), "password="); ok {
 			return v
