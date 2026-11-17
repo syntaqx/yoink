@@ -151,7 +151,7 @@ func TestSpinnerSetFromManyGoroutines(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	s.Set(7)
-	waitFor(t, "the final count", func() bool { return strings.Contains(buf.String(), " 7") })
+	s.Set(-1) // a count none of the goroutines set, so only the final Set can draw it
+	waitFor(t, "the final count", func() bool { return strings.HasSuffix(buf.String(), " -1") })
 	s.Stop()
 }

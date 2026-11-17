@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -13,9 +14,12 @@ import (
 // last request it saw.
 func respond(t *testing.T, status int, contentType, body string) (url string, last func() *http.Request) {
 	t.Helper()
+	var mu sync.Mutex // the handler runs on the server's goroutine
 	var got *http.Request
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		got = r
+		mu.Unlock()
 		w.Header().Set("Link", `<next>; rel="next"`)
 		if contentType != "" {
 			w.Header().Set("Content-Type", contentType)
@@ -24,7 +28,11 @@ func respond(t *testing.T, status int, contentType, body string) (url string, la
 		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(srv.Close)
-	return srv.URL + "/thing", func() *http.Request { return got }
+	return srv.URL + "/thing", func() *http.Request {
+		mu.Lock()
+		defer mu.Unlock()
+		return got
+	}
 }
 
 type thing struct {
@@ -163,7 +171,7 @@ func TestErrorString(t *testing.T) {
 	}{
 		{Error{StatusCode: 404}, "HTTP 404: Not Found"},
 		{Error{StatusCode: 404, Message: "no such org"}, "HTTP 404: no such org"},
-		{Error{StatusCode: 599}, "HTTP 599: "},
+		{Error{StatusCode: 599}, "HTTP 599"}, // no standard name to show
 	} {
 		if got := c.err.Error(); got != c.want {
 			t.Errorf("%+v: %q, want %q", c.err, got, c.want)

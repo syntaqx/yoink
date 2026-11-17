@@ -55,7 +55,9 @@ func TestRunLimitsConcurrency(t *testing.T) {
 			select {
 			case <-full:
 			case <-time.After(5 * time.Second):
-				t.Fatalf("never reached %d tasks at once", c.want)
+				close(release) // let the blocked workers finish rather than leak
+				<-finished
+				t.Fatalf("never reached %d tasks at once (peak %d)", c.want, peak.Load())
 			}
 			close(release)
 			<-finished

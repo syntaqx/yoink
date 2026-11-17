@@ -21,7 +21,10 @@ func (e *Error) Error() string {
 	if e.Message != "" {
 		return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Message)
 	}
-	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, http.StatusText(e.StatusCode))
+	if text := http.StatusText(e.StatusCode); text != "" {
+		return fmt.Sprintf("HTTP %d: %s", e.StatusCode, text)
+	}
+	return fmt.Sprintf("HTTP %d", e.StatusCode)
 }
 
 // Client sends GET requests carrying Header and decodes JSON responses.
