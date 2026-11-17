@@ -1,6 +1,7 @@
 # yoink
 
 [![CI](https://github.com/syntaqx/yoink/actions/workflows/ci.yml/badge.svg)](https://github.com/syntaqx/yoink/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/syntaqx/yoink/graph/badge.svg?token=5XpYRSltbv)](https://codecov.io/gh/syntaqx/yoink)
 [![Go Reference](https://pkg.go.dev/badge/github.com/syntaqx/yoink.svg)](https://pkg.go.dev/github.com/syntaqx/yoink)
 
 Grab every repository in an organization and keep your local copies up to date. yoink clones
