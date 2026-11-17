@@ -18,7 +18,7 @@ single project).
 ## Install
 
 ```bash
-go install github.com/syntaqx/yoink@latest
+go install github.com/syntaqx/yoink/cmd/yoink@latest
 ```
 
 This puts `yoink` in `$(go env GOPATH)/bin`; make sure that's on your `PATH`. You need `git` too.
@@ -124,7 +124,7 @@ It then gets its own subcommand, URL detection for its hosts, and help text auto
 
 ```bash
 go test ./...
-go run . gh acme --dry-run
+go run ./cmd/yoink gh acme --dry-run
 golangci-lint run          # config in .golangci.yml
 goreleaser check           # config in .goreleaser.yaml
 ```
